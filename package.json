@@ -1,0 +1,26 @@
+{
+  "name": "claudio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Case management system for personal injury and maritime plaintiff's practice",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all -p dev:server dev:desktop",
+    "dev:server": "npm --workspace @claudio/server run dev",
+    "dev:desktop": "npm --workspace @claudio/desktop run dev",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm --workspace @claudio/server run db:migrate",
+    "db:seed": "npm --workspace @claudio/server run db:seed",
+    "build": "npm --workspaces run build",
+    "lint": "npm --workspaces run lint --if-present",
+    "typecheck": "npm --workspaces run typecheck --if-present"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.5.4"
+  }
+}

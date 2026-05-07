@@ -1,0 +1,252 @@
+// Claudio case management — database schema
+// Aligned with packages/shared/src/index.ts
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ATTORNEY
+  STAFF
+}
+
+enum CaseStatus {
+  INTAKE
+  ACTIVE
+  LITIGATION
+  SETTLEMENT
+  CLOSED
+  ARCHIVED
+}
+
+enum CasePracticeArea {
+  PERSONAL_INJURY
+  MARITIME
+  JONES_ACT
+  LHWCA
+  PRODUCT_LIABILITY
+  PREMISES_LIABILITY
+  AUTO
+  OTHER
+}
+
+enum ContactType {
+  CLIENT
+  OPPOSING_PARTY
+  OPPOSING_COUNSEL
+  WITNESS
+  EXPERT
+  MEDICAL_PROVIDER
+  INSURANCE_ADJUSTER
+  COURT
+  OTHER
+}
+
+enum EventKind {
+  DEADLINE
+  STATUTE_OF_LIMITATIONS
+  HEARING
+  DEPOSITION
+  MEDIATION
+  TRIAL
+  MEETING
+  OTHER
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// Where a record originated. Phase-2 Microsoft Graph sync writes OUTLOOK_SYNC /
+// SHAREPOINT_SYNC rows; LAWTOOLBOX events that arrive via Outlook share the
+// OUTLOOK_SYNC source but are recognizable by their externalCategory field.
+enum SyncSource {
+  INTERNAL
+  OUTLOOK_SYNC
+  SHAREPOINT_SYNC
+  LAWTOOLBOX
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(STAFF)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  uploadedDocuments Document[]         @relation("UploadedDocuments")
+  authoredNotes     Note[]             @relation("AuthoredNotes")
+  assignedTasks     Task[]             @relation("AssignedTasks")
+  microsoftAccount  MicrosoftAccount?
+}
+
+// Per-user Microsoft 365 link. Refresh tokens are encrypted at rest by the
+// sync worker before write; we store only the ciphertext here.
+model MicrosoftAccount {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId            String
+  msUserId            String
+  scopes              String[] @default([])
+  refreshTokenCipher  String
+  // Delta tokens for Graph change-tracking on calendar/drive subscriptions.
+  calendarDeltaLink   String?
+  driveDeltaLink      String?
+  lastSyncedAt        DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Case {
+  id                   String           @id @default(cuid())
+  caseNumber           String           @unique
+  title                String
+  status               CaseStatus       @default(INTAKE)
+  practiceArea         CasePracticeArea @default(PERSONAL_INJURY)
+  description          String?
+  incidentDate         DateTime?
+  // Most-imminent statute-of-limitations date for the case overall.
+  // Granular SOL items can also live as CalendarEvent rows of kind STATUTE_OF_LIMITATIONS.
+  statuteOfLimitations DateTime?
+  openedAt             DateTime         @default(now())
+  closedAt             DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  contacts  Contact[]
+  documents Document[]
+  events    CalendarEvent[]
+  tasks     Task[]
+  notes     Note[]
+
+  @@index([status])
+  @@index([practiceArea])
+  @@index([statuteOfLimitations])
+}
+
+model Contact {
+  id           String      @id @default(cuid())
+  caseId       String
+  case         Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  type         ContactType
+  name         String
+  organization String?
+  email        String?
+  phone        String?
+  address      String?
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([caseId])
+  @@index([type])
+}
+
+model Document {
+  id            String     @id @default(cuid())
+  caseId        String
+  case          Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  filename      String
+  // Path on disk relative to STORAGE_DIR, set by the upload route.
+  // Null for SHAREPOINT_SYNC entries (the file lives in SharePoint; we hold metadata + a Graph driveItem id).
+  storagePath   String?
+  mimeType      String
+  sizeBytes     Int
+  uploadedById  String
+  uploadedBy    User       @relation("UploadedDocuments", fields: [uploadedById], references: [id])
+  description   String?
+  tags          String[]   @default([])
+  version       Int        @default(1)
+  supersedesId  String?
+  // Phase-2 Microsoft 365 fields. INTERNAL for native uploads.
+  source        SyncSource @default(INTERNAL)
+  externalId    String?
+  externalUrl   String?
+  etag          String?
+  createdAt     DateTime   @default(now())
+
+  @@index([caseId])
+  @@index([uploadedById])
+  @@index([source, externalId])
+}
+
+model CalendarEvent {
+  id        String     @id @default(cuid())
+  caseId    String
+  case      Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  kind      EventKind  @default(OTHER)
+  title     String
+  startsAt  DateTime
+  endsAt    DateTime?
+  allDay    Boolean    @default(false)
+  location  String?
+  notes     String?
+  // Phase-2 Microsoft 365 fields. LawToolbox-generated deadlines arrive via
+  // OUTLOOK_SYNC and can be detected by externalCategory == "LawToolbox".
+  source            SyncSource @default(INTERNAL)
+  externalId        String?
+  externalCalendar  String?
+  externalCategory  String?
+  etag              String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([caseId])
+  @@index([startsAt])
+  @@index([kind])
+  @@index([source, externalId])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  caseId      String
+  case        Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      TaskStatus   @default(OPEN)
+  priority    TaskPriority @default(NORMAL)
+  dueAt       DateTime?
+  assigneeId  String?
+  assignee    User?        @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([caseId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AuthoredNotes", fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([authorId])
+}
