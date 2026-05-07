@@ -1,0 +1,45 @@
+# Node
+node_modules/
+npm-debug.log*
+.npm
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+out/
+*.tsbuildinfo
+.vite/
+.next/
+
+# Electron
+release/
+electron/dist/
+
+# Logs
+logs/
+*.log
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Server runtime data
+apps/server/storage/
+apps/server/uploads/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+postgres-data/
+
+# Test
+coverage/
