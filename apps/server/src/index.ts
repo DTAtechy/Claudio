@@ -14,6 +14,9 @@ import { eventRoutes } from "./routes/events.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { noteRoutes } from "./routes/notes.js";
 import { realtimeRoutes } from "./routes/realtime.js";
+import { intakeRoutes } from "./routes/intake.js";
+import { intakeWebhookRoutes } from "./routes/intake-webhooks.js";
+import { publicFormRoutes } from "./routes/public-form.js";
 
 async function start() {
   await fs.mkdir(path.resolve(env.STORAGE_DIR), { recursive: true });
@@ -23,8 +26,15 @@ async function start() {
     bodyLimit: 1024 * 1024,
   });
 
+  const corsOrigins = [
+    ...env.CORS_ORIGIN.split(",").map((s) => s.trim()),
+    ...(env.PUBLIC_FORM_ALLOWED_ORIGINS
+      ? env.PUBLIC_FORM_ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+      : []),
+  ].filter(Boolean);
+
   await app.register(cors, {
-    origin: env.CORS_ORIGIN.split(",").map((s) => s.trim()),
+    origin: corsOrigins,
     credentials: true,
   });
   await app.register(multipart, {
@@ -43,6 +53,9 @@ async function start() {
   await app.register(taskRoutes);
   await app.register(noteRoutes);
   await app.register(realtimeRoutes);
+  await app.register(intakeRoutes);
+  await app.register(intakeWebhookRoutes);
+  await app.register(publicFormRoutes);
 
   try {
     await app.listen({ port: env.PORT, host: "0.0.0.0" });

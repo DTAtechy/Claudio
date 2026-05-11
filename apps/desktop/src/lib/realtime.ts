@@ -43,3 +43,8 @@ export function openCaseSocket(
     ws?.close();
   };
 }
+
+// Subscribe to all intake-scoped realtime events (new leads, AI updates, etc.)
+export function openIntakeSocket(onMessage: (msg: RealtimeMessage) => void): () => void {
+  return openCaseSocket("intake", onMessage);
+}

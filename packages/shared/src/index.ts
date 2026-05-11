@@ -150,6 +150,54 @@ export interface Note {
   updatedAt: string;
 }
 
+export type IntakeChannel = "EMAIL" | "PHONE" | "CHAT" | "WEB_FORM" | "SMS";
+
+export type IntakeStatus =
+  | "NEW"
+  | "ASSIGNED"
+  | "IN_PROGRESS"
+  | "CONVERTED"
+  | "CLOSED"
+  | "SPAM";
+
+export type IntakeMessageRole = "USER" | "STAFF" | "AI";
+
+export interface IntakeLead {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  channel: IntakeChannel;
+  status: IntakeStatus;
+  priority: number;
+  source?: string | null;
+  callerName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  subject?: string | null;
+  body: string;
+  rawData?: unknown;
+  aiClassification?: string | null;
+  aiExtractedFacts?: Record<string, unknown> | null;
+  aiPriorityReason?: string | null;
+  aiDraftReply?: string | null;
+  aiProcessedAt?: string | null;
+  assignedToId?: string | null;
+  assignedTo?: Pick<User, "id" | "name"> | null;
+  convertedToCaseId?: string | null;
+  messages?: IntakeMessage[];
+  externalId?: string | null;
+  externalThreadId?: string | null;
+}
+
+export interface IntakeMessage {
+  id: string;
+  createdAt: string;
+  leadId: string;
+  role: IntakeMessageRole;
+  content: string;
+  senderName?: string | null;
+}
+
 // Realtime broadcast envelope used by the WebSocket layer.
 export type RealtimeEntity =
   | "case"
@@ -157,7 +205,8 @@ export type RealtimeEntity =
   | "document"
   | "event"
   | "task"
-  | "note";
+  | "note"
+  | "intake";
 export type RealtimeAction = "created" | "updated" | "deleted";
 
 export interface RealtimeMessage<T = unknown> {

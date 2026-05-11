@@ -5,6 +5,8 @@ import LoginPage from "@/pages/LoginPage";
 import CasesPage from "@/pages/CasesPage";
 import CaseDetailPage from "@/pages/CaseDetailPage";
 import DashboardPage from "@/pages/DashboardPage";
+import IntakePage from "@/pages/IntakePage";
+import WebsiteIntegrationPage from "@/pages/settings/WebsiteIntegrationPage";
 import AppShell from "@/components/AppShell";
 
 export default function App() {
@@ -37,6 +39,8 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/cases" element={<CasesPage />} />
         <Route path="/cases/:id" element={<CaseDetailPage />} />
+        <Route path="/intake" element={<IntakePage />} />
+        <Route path="/settings/website-integration" element={<WebsiteIntegrationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

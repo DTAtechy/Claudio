@@ -7,6 +7,8 @@ import type {
   Task,
   Note,
   User,
+  IntakeLead,
+  IntakeMessage,
 } from "@claudio/shared";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -132,6 +134,48 @@ export const api = {
   updateNote: (id: string, body: { body: string }) =>
     request<Note>(`/notes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: "DELETE" }),
+
+  // Intake
+  intake: {
+    counts: () => request<{ new: number }>("/intake/counts"),
+    list: (q?: { status?: string; channel?: string; assigneeId?: string; q?: string }) => {
+      const params = new URLSearchParams();
+      if (q?.status) params.set("status", q.status);
+      if (q?.channel) params.set("channel", q.channel);
+      if (q?.assigneeId) params.set("assigneeId", q.assigneeId);
+      if (q?.q) params.set("q", q.q);
+      const qs = params.toString();
+      return request<IntakeLead[]>(`/intake${qs ? `?${qs}` : ""}`);
+    },
+    get: (id: string) => request<IntakeLead>(`/intake/${id}`),
+    update: (id: string, body: Partial<IntakeLead>) =>
+      request<IntakeLead>(`/intake/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    assign: (id: string, assigneeId?: string) =>
+      request<IntakeLead>(`/intake/${id}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ assigneeId }),
+      }),
+    convert: (id: string) =>
+      request<Case>(`/intake/${id}/convert`, { method: "POST" }),
+    reply: (id: string, content: string) =>
+      request<IntakeMessage>(`/intake/${id}/reply`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      }),
+    analyze: (id: string) =>
+      request<{ ok: boolean }>(`/intake/${id}/analyze`, { method: "POST" }),
+    delete: (id: string) => request<void>(`/intake/${id}`, { method: "DELETE" }),
+  },
+
+  // Public form (no auth needed — called from the firm website)
+  submitPublicForm: (body: {
+    name: string;
+    email?: string;
+    phone?: string;
+    hearAboutUs?: string;
+    description: string;
+  }) =>
+    request<{ ok: true }>("/intake/submit", { method: "POST", body: JSON.stringify(body) }),
 };
 
 export const apiUrl = API_URL;
