@@ -83,6 +83,29 @@ enum SyncSource {
   LAWTOOLBOX
 }
 
+enum IntakeChannel {
+  EMAIL
+  PHONE
+  CHAT
+  WEB_FORM
+  SMS
+}
+
+enum IntakeStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  CONVERTED
+  CLOSED
+  SPAM
+}
+
+enum IntakeMessageRole {
+  USER
+  STAFF
+  AI
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -95,6 +118,7 @@ model User {
   uploadedDocuments Document[]         @relation("UploadedDocuments")
   authoredNotes     Note[]             @relation("AuthoredNotes")
   assignedTasks     Task[]             @relation("AssignedTasks")
+  assignedLeads     IntakeLead[]       @relation("AssignedLeads")
   microsoftAccount  MicrosoftAccount?
 }
 
@@ -132,11 +156,12 @@ model Case {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  contacts  Contact[]
-  documents Document[]
-  events    CalendarEvent[]
-  tasks     Task[]
-  notes     Note[]
+  contacts   Contact[]
+  documents  Document[]
+  events     CalendarEvent[]
+  tasks      Task[]
+  notes      Note[]
+  intakeLead IntakeLead?
 
   @@index([status])
   @@index([practiceArea])
@@ -249,4 +274,50 @@ model Note {
 
   @@index([caseId])
   @@index([authorId])
+}
+
+model IntakeLead {
+  id               String        @id @default(cuid())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  channel          IntakeChannel
+  status           IntakeStatus  @default(NEW)
+  priority         Int           @default(50)
+  source           String?
+  callerName       String?
+  email            String?
+  phone            String?
+  subject          String?
+  body             String
+  rawData          Json?
+  aiClassification String?
+  aiExtractedFacts Json?
+  aiPriorityReason String?
+  aiDraftReply     String?
+  aiProcessedAt    DateTime?
+  assignedToId     String?
+  assignedTo       User?         @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  convertedToCaseId String?      @unique
+  convertedToCase  Case?         @relation(fields: [convertedToCaseId], references: [id])
+  messages         IntakeMessage[]
+  externalId       String?
+  externalThreadId String?
+
+  @@index([status])
+  @@index([channel])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([createdAt])
+}
+
+model IntakeMessage {
+  id         String            @id @default(cuid())
+  createdAt  DateTime          @default(now())
+  leadId     String
+  lead       IntakeLead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  role       IntakeMessageRole
+  content    String
+  senderName String?
+
+  @@index([leadId])
 }
